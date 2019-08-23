@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "baseUrl": "./node_modules",
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "esModuleInterop": true,
+    "jsx": "react",
+    "module": "esnext",
+    "moduleResolution": "node",
+    "outFile": "./lib/index.d.ts",
+    "preserveSymlinks": true,
+    "rootDir": "./src",
+    "strict": true,
+    "target": "esnext"
+  },
+  "include": ["./src/**/*"],
+  "exclude": ["node_modules", "./**/node_modules"]
+}
