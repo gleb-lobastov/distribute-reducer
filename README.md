@@ -1,46 +1,84 @@
-### About
+This is wrapper over arbitrary redux reducer.
 
-**distributeReducerByDomain** is wrapper to apply over your redux reducer.
+It allows to dynamically apply the same reducer to different parts of the state. Each part is stored in own place, which called here "domain". Domains have a hierarchical structure and could be nested. Also, domains could be grouped by their names, through "domainsFilter" option. One action could be reduced both, to a single domain or group of domains.
 
-When applied it turns passed state into hierarchy of nested states. Every state is accessible by path, called here "domain". Wrapped reducer will be applied only to state of domain specified in action.
+Also, lib provides selectors for domain states.
 
-Domain used to select either particular state or array of all states in hierarchy
+It's originally written to automate HTTP requests state tracking: each request keep its state (success/fail, result, error, etc.) in own domain. Domain path is specified by an app developer. So a developer could select isPending state for one or group (related to the same page, fetch/submit, etc.) of requests and show loader, or select error state and show error modal. Requests could be invalidated by domain individually or in the group through domainsFilter
 
-Domain is represented as string with "." delimiters.
-Each part is domain name in appropriate level of domains hierarchy.
-
-"Libraries.Redux" domain is nested in "Libraries" domain. If select all states of "Libraries" domain "Libraries.Redux" will be in list.
-
-### Example use case
-
-_or original purpose of this module_
-
-Manage related server requests. Utility give handy access to states of all requests on current page by domain "%page%". This is convenient to show errors and loading indicators. Moreover requests could be divided as "fetch" and "submit", or "%component%" or "%actionType%", etc.
-
-### API
+Usage example:
 
 ```ecmascript 6
-const {
-  /* Provided API */
-  reducer,
-  selectDomainState,
-  selectDomainStates,
-} = distributeReducerByDomain({
-  /* Configuration */
-  domainSeparator,
-  domainProperty,
-  reducer, // only required
-});
+import { combineReducers } from 'redux';
+import { distributeReducer } from 'distributeReducer';
+import originalReducer from 'originalReducer';
+
+export default combineReducers({
+  distributedState: distributeReducer(originalReducer)
+})
 ```
 
-#### Provided API
+The wrapped reducer will accept additional params in action:
 
-1.  **reducer(state, action) => state** – wrapped reducer
-1.  **selectDomainState(state, domain) => domainState** – select only state of specified domain. No nested states included
-1.  **selectDomainStates(state, domain) => [...domainStates]** – select array, consist of specified domain state and all it nested (recursively) domains state
+```ecmascript 6
 
-#### Configuration
+const action = {
+   meta: {
+      domain: 'path.with.dot.separator',
+      distributeReducerOptions: {
+         maxNestingDepth: 0,
+         domainsFilter: '.*',
+      },
+   }
+}
+```
 
-1.  **domainSeparator** – sign used to separate nested domain names in path. Default to '.'
-1.  **domainProperty** – specify domain path property in redux action. Could be string (dot-separated path) or function, that receives action. Default to 'meta.domain'
-1.  **reducer** – wrapped reducer. Required!
+For example, how to select the state of any fetch request on one page to show appropriate loader:
+
+```ecmascript 6
+
+const stateExample = {
+  domains: {
+    myPage: {
+      domains: {
+        fetchData: {
+          domainState: { isPending: true },
+        },
+        fetchPics: {
+          domainState: { isPending: false },
+        },
+        submitForm: {
+          domainState: { isPending: false },
+        },
+      },
+    },
+  },
+};
+
+const fetchStates = selectDomainStates(
+  stateExample,
+  'myPage',
+  { domainsFilter: 'fetch' }
+);
+
+console.log(fetchStates);
+// {
+//   'myPage.fetchData': { isPending: true },
+//   'myPage.fetchPics': { isPending: false }
+// }
+
+const hasPendingRequest = Object.values(fetchStates).some(
+  ({ isPending }) => isPending
+);
+
+console.log(hasPendingRequest);
+// true
+
+```
+
+A domain path is a path in the state to where original reducer will be applied.
+
+maxNestingDepth - specifies relative depth in domains hierarchy to apply reducer. By default, it is 0, which means, that only reducer will be applied only on the specified domain, not nested domains. To not to make any restriction just pass maxNestingDepth: Infinity
+domainsFilter - string represents regexp, which will filter domains by domainPath
+
+Note: these additional fields are consumed in the wrapper and not pass to the original reducer.
